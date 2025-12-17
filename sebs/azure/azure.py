@@ -1,4 +1,5 @@
 import datetime
+import fnmatch
 import json
 import re
 import os
@@ -33,7 +34,7 @@ class Azure(System):
     _config: AzureConfig
 
     # runtime mapping
-    AZURE_RUNTIMES = {"python": "python", "nodejs": "node", "pypy": "custom"}
+    AZURE_RUNTIMES = {"python": "python", "nodejs": "node", "pypy": "custom", "bun": "custom"}
 
     @staticmethod
     def name():
@@ -133,24 +134,25 @@ class Azure(System):
 
         # In previous step we ran a Docker container which installed packages
         # Python packages are in .python_packages because this is expected by Azure
-        EXEC_FILES = {"python": "handler.py", "nodejs": "handler.js", "pypy": "handler.py"}
+        EXEC_FILES = {"python": "handler.py", "nodejs": "handler.js"} # standard supported runtimes
+        # custom runtimes: (execPath, [args])
+        CUSTOM_EXEC = {
+            "pypy": ("pypy/bin/pypy", ["handler.py"]),
+            "bun": ("boostrap", []),
+        }
         CONFIG_FILES = {
             "python": ["requirements.txt", ".python_packages"],
             "nodejs": ["package.json", "node_modules"],
             # Keep .python_packages at the root so custom handler can import deps.
-            "pypy": ["requirements.txt", ".python_packages", "pypy"],
+            "pypy": ["requirements.txt", ".python_packages", "pypy", "handler.py"],
+            "bun": ["*"]
         }
         package_config = CONFIG_FILES[language_name]
 
         handler_dir = os.path.join(directory, "handler")
         os.makedirs(handler_dir)
-        # move all files to 'handler' except package config
-        # For pypy custom handlers, handler.py must stay at root level
-        files_to_exclude = package_config.copy()
-        if language_name == "pypy":
-            files_to_exclude.append(EXEC_FILES[language_name])
         for f in os.listdir(directory):
-            if f not in files_to_exclude:
+            if not any(fnmatch.fnmatch(f, pattern) for pattern in package_config):
                 source_file = os.path.join(directory, f)
                 shutil.move(source_file, handler_dir)
 
@@ -168,7 +170,7 @@ class Azure(System):
                 {"type": "http", "direction": "out", "name": "$return"},
             ],
         }
-        if language_name != "pypy":
+        if language_name in EXEC_FILES:
             default_function_json["scriptFile"] = EXEC_FILES[language_name]
 
         json_out = os.path.join(directory, "handler", "function.json")
@@ -182,11 +184,12 @@ class Azure(System):
                 "version": "[4.0.0, 5.0.0)",
             },
         }
-        if language_name == "pypy":
+
+        if language_name in CUSTOM_EXEC:
             default_host_json["customHandler"] = {
                 "description": {
-                    "defaultExecutablePath": "pypy/bin/pypy",
-                    "arguments": ["handler.py"],
+                    "defaultExecutablePath": CUSTOM_EXEC[language_name][0],
+                    "arguments": CUSTOM_EXEC[language_name][1],
                 },
                 "enableForwardingHttpRequest": True,
             }

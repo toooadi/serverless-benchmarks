@@ -263,6 +263,7 @@ class Trigger(ABC, LoggingBase):
 class Language(Enum):
     PYTHON = "python"
     NODEJS = "nodejs"
+    BUN = "bun"
     PYPY = "pypy"
 
     # FIXME: 3.7+ python with future annotations
@@ -286,7 +287,7 @@ class Architecture(Enum):
         for member in Architecture:
             if member.value == val:
                 return member
-        raise Exception(f"Unknown architecture type {member}")
+        raise Exception(f"Unknown architecture type {val}")
 
 
 @dataclass
@@ -300,7 +301,7 @@ class Runtime:
 
     @staticmethod
     def deserialize(config: dict) -> Runtime:
-        languages = {"python": Language.PYTHON, "nodejs": Language.NODEJS, "pypy": Language.PYPY}
+        languages = {"python": Language.PYTHON, "nodejs": Language.NODEJS, "pypy": Language.PYPY, "bun": Language.BUN}
         return Runtime(language=languages[config["language"]], version=config["version"])
 
 

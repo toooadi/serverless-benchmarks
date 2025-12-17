@@ -13,7 +13,7 @@ parser.add_argument(
     "--deployment", default=None, choices=["local", "aws", "azure", "gcp"], action="store"
 )
 parser.add_argument("--type", default=None, choices=["build", "run", "manage"], action="store")
-parser.add_argument("--language", default=None, choices=["python", "nodejs", "pypy"], action="store")
+parser.add_argument("--language", default=None, choices=["python", "nodejs", "pypy", "bun"], action="store")
 parser.add_argument("--language-version", default=None, type=str, action="store")
 # Optional: force build platform (e.g., linux/amd64 on Apple Silicon)
 parser.add_argument("--platform", default=None, type=str, action="store")
