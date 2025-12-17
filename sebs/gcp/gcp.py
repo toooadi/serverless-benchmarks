@@ -8,6 +8,7 @@ import math
 import zipfile
 from datetime import datetime, timezone
 from typing import cast, Dict, Optional, Tuple, List, Type
+import fnmatch
 
 from googleapiclient.discovery import build
 from googleapiclient.errors import HttpError
@@ -148,7 +149,8 @@ class GCP(System):
         CONFIG_FILES = {
             "python": ["handler.py", ".python_packages"],
             "nodejs": ["handler.js", "node_modules"],
-            "pypy" : ["handler.py", ".python_packages"]
+            "pypy" : ["handler.py", ".python_packages"],
+            "bun": ["*"], # ignore all files from bun / do not move them into a subdirectory
         }
         HANDLER = {
             "python": ("handler.py", "main.py"),
@@ -159,16 +161,19 @@ class GCP(System):
         function_dir = os.path.join(directory, "function")
         os.makedirs(function_dir)
         for file in os.listdir(directory):
-            if file not in package_config:
+            if not any(fnmatch.fnmatch(file, pattern) for pattern in package_config):
                 file = os.path.join(directory, file)
                 shutil.move(file, function_dir)
 
         # rename handler function.py since in gcp it has to be caled main.py
+        old_path, new_path = None, None
         if not container_deployment:
-            old_name, new_name = HANDLER[language_name]
-            old_path = os.path.join(directory, old_name)
-            new_path = os.path.join(directory, new_name)
-            shutil.move(old_path, new_path)
+            handler = HANDLER.get(language_name)
+            if handler:
+                old_name, new_name = handler
+                old_path = os.path.join(directory, old_name)
+                new_path = os.path.join(directory, new_name)
+                shutil.move(old_path, new_path)
 
         """
             zip the whole directory (the zip-file gets uploaded to gcp later)
@@ -190,7 +195,7 @@ class GCP(System):
         logging.info("Zip archive size {:2f} MB".format(mbytes))
 
         # rename the main.py back to handler.py
-        if not container_deployment:
+        if not container_deployment and old_path and new_path:
             shutil.move(new_path, old_path)
 
         return os.path.join(directory, "{}.zip".format(benchmark)), bytes_size, container_uri
