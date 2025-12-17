@@ -644,6 +644,7 @@ class GCP(System):
                 "template": {
                     "containers": [
                         {
+                            "image": code_package.container_uri,
                             "resources": {
                                 "limits": {
                                     "memory": f"{memory}Mi",
