@@ -479,6 +479,7 @@ class GCP(System):
             # Cloud Run v2 Service Update
             service_body = {
                 "template": {
+                    "maxInstanceRequestConcurrency" : 1,
                     "containers": [
                         {
                             "image": container_uri,
@@ -614,7 +615,7 @@ class GCP(System):
         assert code_package.has_input_processed
 
         function = cast(GCPFunction, function)
-        if code_package.language_name == "pypy":
+        if code_package.container_deployment:
             full_func_name = GCP.get_full_service_name(
                 self.config.project_name, 
                 self.config.region, 
@@ -642,12 +643,13 @@ class GCP(System):
 
             service_body = {
                 "template": {
+                    "maxInstanceRequestConcurrency" : 1,
                     "containers": [
                         {
                             "image": code_package.container_uri,
                             "resources": {
                                 "limits": {
-                                    "memory": f"{memory}Mi",
+                                    "memory": f"{memory if memory > 512 else 512}Mi",
                                 }
                             },
                             "env": env_vars
@@ -928,15 +930,17 @@ class GCP(System):
 
     def is_deployed(self, func_name: str, versionId: int = -1) -> Tuple[bool, int]:
         
-        if "pypy" in func_name:
+        #v1 functions don't allow hyphens, new functions don't allow underscores
+        if "pypy" in func_name or '-' in func_name:
              # Cloud Run Service
              service_name = func_name.replace("_", "-").lower()
              name = GCP.get_full_service_name(self.config.project_name, self.config.region, service_name)
              try:
                   svc = self.run_client.projects().locations().services().get(name=name).execute()
-                  conditions = svc.get("status", {}).get("conditions", [])
-                  ready = next((c for c in conditions if c["type"] == "Ready"), None)
-                  is_ready = ready and ready["status"] == "True"
+                  conditions = svc.get("terminalCondition", {})
+                  #ready = next((c for c in conditions if c["type"] == "Ready"), None)
+                  #is_ready = ready and ready["status"] == "True"
+                  is_ready = conditions.get("type", "") == "Ready"
                   return (is_ready, 0)
              except HttpError:
                   return (False, -1)
