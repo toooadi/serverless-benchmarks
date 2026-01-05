@@ -193,3 +193,4 @@ cache
 
 #VS Code files
 .vscode/
+results/*
