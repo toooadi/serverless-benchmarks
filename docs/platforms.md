@@ -1,8 +1,9 @@
+# Platform Configuration
 
 SeBS supports three commercial serverless platforms: AWS Lambda, Azure Functions, and Google Cloud Functions.
 Furthermore, we support the open source FaaS system OpenWhisk.
 
-The file `config/example.json` contains all parameters that users can change
+The file `configs/example.json` contains all parameters that users can change
 to customize the deployment.
 Some of these parameters, such as cloud credentials or storage instance address,
 are required.
@@ -32,6 +33,17 @@ However, special care is needed to build Docker containers: since installation o
 binaries based on ARM containers on x86 CPUs. To build multi-platform images, we recommend to follow official [Docker guidelines](https://docs.docker.com/build/building/multi-platform/#build-multi-platform-images) and provide static QEMU installation.
 On Ubuntu-based distributions, this requires installing an OS package and executing a single Docker command to provide seamless emulation of ARM containers.
 
+### Multi-platform Docker Images
+
+Build images, which encapsulate package building, are available as both x64 and arm64 for Python and Node.js on AWS Lambda.
+To rebuild multi-plaform images, an additional flag is needed to enable the internal `docker buildx` command:
+
+```bash
+sebs docker build --image-type build --language python --deployment aws --architecture x64 --language-version 3.11 --multi-platform
+```
+
+When rebuilding build images (not necessary for regular users, only for developers), make sure that your Docker installation supports multi-platform images, e.g., [you use `containerd` image store](https://docs.docker.com/engine/storage/containerd/) - old Docker installations might not change the storage type after an upgrade to Docker 29.0, where `containerd` is the default.
+
 ## Cloud Account Identifiers
 
 SeBS ensures that all locally cached cloud resources are valid by storing a unique identifier associated with each cloud account. Furthermore, we store this identifier in experiment results to easily match results with the cloud account or subscription that was used to obtain them. We use non-sensitive identifiers such as account IDs on AWS, subscription IDs on Azure, and Google Cloud project IDs.
@@ -51,7 +63,7 @@ Additionally, the account must have `AmazonAPIGatewayAdministrator` permission t
 automatically AWS HTTP trigger.
 You can provide a [role](https://docs.aws.amazon.com/lambda/latest/dg/lambda-intro-execution-role.html)
 with permissions to access AWS Lambda and S3; otherwise, one will be created automatically.
-To use a user-defined lambda role, set the name in config JSON - see an example in `config/example.json`.
+To use a user-defined lambda role, set the name in config JSON - see an example in `configs/example.json`.
 
 You can pass the credentials either using the default AWS-specific environment variables:
 
@@ -76,6 +88,33 @@ or in the JSON input configuration:
 }
 ```
 
+### Lambda Function URLs vs API Gateway
+
+SeBS supports two methods for HTTP-based function invocation on AWS Lambda:
+
+1. **Lambda Function URLs** (default) - Direct Lambda invocations.
+2. **API Gateway HTTP API** (optional) - Traditional approach using AWS API Gateway.
+
+SeBS used API Gateway to trigger Lambda functions. However, API Gateway has a hard timeout limit of 29 seconds, which can be restrictive for long-running benchmarks. To overcome this limitation and simplify the architecture, we added support for Lambda Function URLs, which allow direct invocation of Lambda functions without the need for API Gateway. Since we do not rely on more complex API management features, function URLs are now the default version.
+
+However, API gateway can still be used to benchmarking. The switch between both options is configured in the deployment settings:
+
+```json
+"deployment": {
+  "name": "aws",
+  "aws": {
+    "region": "us-east-1",
+    "resources": {
+      "use-function-url": true,
+      "function-url-auth-type": "NONE"
+    }
+  }
+}
+```
+
+> [!WARNING]
+> SeBS implements the "NONE" authentication mode for function URLs, making Lambda functions publicly accessible without any authentication.
+
 ## Azure Functions
 
 Azure provides a free tier for 12 months.
@@ -91,7 +130,7 @@ XXXXX
 Please follow the login instructions to generate credentials...
 To sign in, use a web browser to open the page https://microsoft.com/devicelogin and enter the code YYYYYYY to authenticate.
 
-Login succesfull with user {'name': 'ZZZZZZ', 'type': 'user'}
+Login successful with user {'name': 'ZZZZZZ', 'type': 'user'}
 Created service principal http://XXXXX
 
 AZURE_SECRET_APPLICATION_ID = XXXXXXXXXXXXXXXX
@@ -127,6 +166,9 @@ or in the JSON input configuration:
 
 > [!WARNING]
 > The tool assumes there is only one subscription active on the account. If you want to bind the newly created service principal to a specific subscription, or the created credentials do not work with SeBS and you see errors such as "No subscriptions found for X", then you must specify a subscription when creating the service principal. Check your subscription ID on in the Azure portal, and use the CLI option `tools/create_azure_credentials.py --subscription <SUBSCRIPTION_ID>`.
+
+> [!WARNING]
+> Sometimes there's a delay within Azure platform that causes properties like subscription assignment to not be propagated immediately across systems. If you keep seeing errors such "No subscription found", then wait for a few minutes before trying again.
 
 > [!WARNING]
 > When you log in for the first time on a device, Microsoft might require authenticating your login with Multi-Factor Authentication (MFA). In this case, we will return an error such as: "The following tenants require Multi-Factor Authentication (MFA). Use 'az login --tenant TENANT_ID' to explicitly login to a tenant.". Then, you can pass the tenant ID by using the `--tenant <tenant-id>` flag.
@@ -167,17 +209,106 @@ or in the JSON input configuration:
   "name": "gcp",
   "gcp": {
     "region": "europe-west1",
+    "project_name": "your-gcp-project-id",
     "credentials": "/path/to/project-credentials.json"
   }
 }
 ```
+
+### Deployment Modes
+
+SeBS models two GCP deployment targets:
+
+1. `function-gen1`: the first Google Cloud Functions Gen1 path.
+2. `container`: direct container deployment to Cloud Run.
+
+We plan also to add support for `function-gen2`, the current Google Cloud Functions Gen2 path.
+These deployment types intentionally share a single GCP backend in SeBS, but they are not identical in packaging, naming, scaling, or performance behavior.
+
+On GCP, there are two different concurrency layers that should not be confused:
+* platform concurrency: how many requests GCP may send to one instance (`gcp-concurrency`)
+* runtime concurrency: how many requests the language server is prepared to process internally (`worker-concurrency`, `worker-threads`)
+This design is intentional. A single Cloud Run concurrency number is not enough to reason about performance if the application server is underprovisioned or overprovisioned relative to the platform.
+
+### Function Gen1
+
+Gen1 is the currently implemented Google-managed function deployment path in SeBS. The packaging flow is ZIP-based:
+* benchmark sources are moved into a `function/` subdirectory,
+* the language wrapper file is renamed to the GCP-required entrypoint name (`main.py` for Python, `index.js` for Node.js),
+* the whole directory is archived and uploaded to Cloud Storage,
+* Cloud Functions Gen1 is then updated from the uploaded archive.
+
+Gen1 configuration currently exposes instance-scaling controls:
+
+```json
+"deployment": {
+  "name": "gcp",
+  "gcp": {
+    "region": "europe-west1",
+    "project_name": "your-gcp-project-id",
+    "credentials": "/path/to/project-credentials.json",
+    "configuration": {
+      "function-gen1": {
+        "min-instances": 0,
+        "max-instances": 20
+      }
+    }
+  }
+}
+```
+
+Use Gen1 when you want the most established GCP path in SeBS and do not need container-level runtime tuning.
+
+### Cloud Run Container Deployments
+
+Container deployments are the currently implemented Cloud Run-based path in SeBS. They are selected with container deployment and use a provider-specific function image built from `Dockerfile.function`.
+At the deployment level, SeBS configures Cloud Run service properties:
+
+```json
+"deployment": {
+  "name": "gcp",
+  "gcp": {
+    "region": "europe-west1",
+    "project_name": "your-gcp-project-id",
+    "credentials": "/path/to/project-credentials.json",
+    "configuration": {
+      "container": {
+        "environment": "gen2",
+        "vcpus": 1,
+        "gcp-concurrency": 80,
+        "worker-concurrency": 80,
+        "worker-threads": 8,
+        "min-instances": 0,
+        "max-instances": 20,
+        "cpu-boost": false,
+        "cpu-throttle": true
+      }
+    }
+  }
+}
+```
+
+For Python, SeBS uses [`functions-framework`](https://github.com/GoogleCloudPlatform/functions-framework-python) behind `gunicorn` rather than the framework's default development server, as [recommended by Cloud Run performance guidance](https://docs.cloud.google.com/run/docs/tips/python).
+For Node.js, SeBS uses [`@google-cloud/functions-framework`](https://github.com/GoogleCloudPlatform/functions-framework-nodejs) started directly with `node` rather than via `npm start`, [as recommended by Cloud Run performance guidance](https://docs.cloud.google.com/run/docs/tips/nodejs).
+For Java, we use [`java-function-invoker`](https://mvnrepository.com/artifact/com.google.cloud.functions.invoker/java-function-invoker), and we disable tiered compilation to speed up startup time, [as recommended by Cloud Run performance guidance](https://docs.cloud.google.com/run/docs/tips/java).
+
+Cloud Run containers can [execute in two environments](https://docs.cloud.google.com/run/docs/configuring/execution-environment): gVisor-based gen1, and VM-based gen2.
+
+### Current Limitations
+
+The current GCP backend has the following practical limits:
+* Gen1 is the primary managed-functions deployment path today.
+* Gen2 is planned and partially modeled in configuration, but not yet fully deployed through a dedicated strategy.
+* Cloud Run containers are implemented today and provide the most tuning control.
+* GCP deployments currently reject `arm64`, as arm64 instances are not available for GCR.
+* C++ packaging is not supported on GCP (but possible to be implemented on containers).
 
 ## OpenWhisk
 
 SeBS expects users to deploy and configure an OpenWhisk instance.
 Below, you will find example of instruction for deploying OpenWhisk instance.
 The configuration parameters of OpenWhisk for SeBS can be found
-in `config/example.json` under the key `['deployment']['openwhisk']`.
+in `configs/example.json` under the key `['deployment']['openwhisk']`.
 In the subsections below, we discuss the meaning and use of each parameter.
 To correctly deploy SeBS functions to OpenWhisk, following the
 subsections on *Toolchain* and *Docker* configuration is particularly important.
@@ -230,6 +361,15 @@ or a Docker image with all dependencies preinstalled.
 However, OpenWhisk has a very low code package size limit of only 48 megabytes.
 So, to circumvent this limit, we deploy functions using pre-built Docker images.
 
+> [!NOTE]
+> On Python and Node.js, we create a full Docker image and upload the main handler
+file only to OpenWhisk, as this is required for actions.
+This is not possible on Java, as we need to compile the code into JAR.
+To avoid extract build image, we build the function image, extract the function JAR,
+and upload it with the action. In future, if we want to create heavy JARs with complex
+dependencies, we might need to switch to full image deployment on Java as well.
+
+
 **Important**: OpenWhisk requires that all Docker images are available
 in the registry, even if they have been cached on a system serving OpenWhisk
 functions.
@@ -242,8 +382,7 @@ and new language versions, Docker images must be placed in the registry.
 However, pushing the image to the default `spcleth/serverless-benchmarks`
 repository on Docker Hub requires permissions.
 To use a different Docker Hub repository, change the key
-`['general']['docker_repository']` in `config/systems.json`.
-
+`['general']['docker_repository']` in `configs/systems.json`.
 
 Alternatively, OpenWhisk users can configure the FaaS platform to use a custom and
 private Docker registry and push new images there.
@@ -258,9 +397,8 @@ See the documentation on the
 and [OpenWhisk configuration](https://github.com/apache/openwhisk-deploy-kube/blob/master/docs/private-docker-registry.md)
 for details.
 
-**Warning**: this feature is experimental and has not been tested extensively.
-At the moment, it cannot be used on a `kind` cluster due to issues with
-Docker authorization on invoker nodes. [See the OpenWhisk issue for details](https://github.com/apache/openwhisk-deploy-kube/issues/721).
+> [!WARNING]
+> This feature is experimental and has not been tested extensively. At the moment, it cannot be used on a `kind` cluster due to issues with Docker authorization on invoker nodes. [See the OpenWhisk issue for details](https://github.com/apache/openwhisk-deploy-kube/issues/721).
 
 ### Code Deployment
 

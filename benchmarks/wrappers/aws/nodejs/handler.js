@@ -1,3 +1,4 @@
+// Copyright 2020-2025 ETH Zurich and the SeBS authors. All rights reserved.
 
 const path = require('path'), fs = require('fs');
 
@@ -34,7 +35,7 @@ exports.handler = async function(event, context) {
           end: end,
           compute_time: micro,
           results_time: 0,
-          result: {output: result},
+          result: result,
           is_cold: is_cold,
           request_id: context.awsRequestId
         }, http_trigger)

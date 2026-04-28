@@ -1,5 +1,4 @@
-
-## Modularity
+# Modularity
 
 SeBS benchmarks have been designed to operate independently of the underlying serverless platform.
 We provide a single benchmark implementation with additional scripts to install dependencies and generate inputs.
@@ -24,7 +23,7 @@ Benchmarks follow the naming structure `x.y.z` where x is the benchmark group, y
 ID and z is benchmark version. For examples of implementations, look at `210.thumbnailer`
 or `311.compression`. Benchmark requires the following files:
 
-#### Configuration
+### Configuration
 
 **config.json** defines the default timeout, memory size, and languages supported for this benchmark.
 The usual convention is that `memory` defines the lowest memory amount for which this benchmark can be executed
@@ -38,7 +37,7 @@ on all platforms.
 }
 ```
 
-#### Input Data
+### Input Data
 
 **input.py** implements input generation for the benchmark. There is a single Python file with such an implementation
 for all language implementations of the benchmark - input generation is always the same.
@@ -66,7 +65,43 @@ def generate_input(data_dir, size, input_buckets, output_buckets, upload_func):
 
 Input files for benchmark, e.g., pretrained model and test images for deep learning inference, should be added to the [benchmarks-data](https://github.com/spcl/serverless-benchmarks-data) repository. SeBS will upload all inputs to the cloud storage, as implemented in the `generate_input` function in `input.py` file. Output buckets are cleaned after experiments. Furthermore, this function should return input configuration as a dictionary that will be passed to the function at invocation.
 
-#### Code
+### Output Validation
+
+**IMPORTANT**: As of SeBS v1.2.1, all benchmarks must implement output validation to ensure correctness across platforms, languages, and architectures.
+
+The `validate_output()` function in `input.py` is called during regression testing or benchmark invocation (optional) to verify that benchmark results are correct. This function must be implemented for all new benchmarks. The function should return `None` when output is valid or a descriptive string explaining what failed.
+
+```python
+def validate_output(
+    input_config: dict,
+    output: dict,
+    language: str,
+    architecture: str,
+    storage = None
+) -> str | None:
+    """
+    Validate benchmark output against expected values.
+
+    Args:
+        input_config: The input configuration dict used to invoke the benchmark
+        output: The output dict returned by the benchmark function handler
+        language: Programming language used (e.g., 'python', 'nodejs', 'cpp', 'java')
+        architecture: CPU architecture (e.g., 'x64', 'arm64')
+        storage: Optional PersistentStorage client for downloading/verifying files
+
+    Returns:
+        None if validation passes, or a descriptive error string if validation fails
+    """
+```
+
+There are four basic types of validation. They are not exclusive and can be combined, e.g., benchmarks might apply checksum-based validation on outputs downloaded from cloud storage.
+* **Simple Value Validation** - for benchmarks with deterministic, self-contained output, e.g., `010.sleep`.
+* **Content Validation** - for benchmarks that generate text, HTML, or structured content, e.g., `110.dynamic-html` validates HTML structure and content.
+* **Checksum-Based Validation** - for deterministic algorithms where exact output matters. Examples: `120.uploader` verifies that downlodaed files are identical to expected.
+* **Similarity-Based Validation** - for benchmarks with non-deterministic output, e.g., `220.video-processing` uses ffmpeg internally which does not guarantee bitwise reproducibility. Instead, we use `ffmpeg` to validate that the produced video is is visually similar to the expected one.
+* **Storage-Based Validation** - for benchmarks that produce large outputs or files in cloud storage, e.g., `310.image-processing` validates that the output image is correct by downloading it from storage and comparing it to the expected output.
+
+### Code
 
 Place source code and internal resources in the language directory, e.g., `python` or `nodejs`. The entrypoint should be located in a file named `function.<language-extension>`, e.g., `function.py` or `function.js`, and take just one argument:
 
@@ -101,13 +136,13 @@ For each benchmark, the `input.py` file provides a generation of inputs and uplo
 At the moment, SeBS implements benchmarks in Python and Node.js. However, it is very easy to add new languages,
 and it requires only minor modifications.
 
-#### Language Name
+### Language Name
 
 First, pick a language name and use it consistently in all places.
 For example, we use `nodejs` for benchmarks in Node.js; it is important we never refer to such
 benchmarks with another name, e.g., `node.js` or `node`.
 
-#### Add Docker Builder Image
+### Add Docker Builder Image
 
 For each new language, we need to add a Docker image used for building and installing function dependencies.
 The container will be run during the function build, and SeBS will mount the function code and configuration inside the container.
@@ -169,7 +204,7 @@ CMD /bin/bash /sebs/installer.sh
 ENTRYPOINT ["/sebs/entrypoint.sh"]
 ```
 
-#### Extend Configuration
+### Extend Configuration
 
 Then, we need to add the new language in [`config/systems.json`](/config/systems.json).
 
@@ -187,7 +222,7 @@ Then, we need to add the new language in [`config/systems.json`](/config/systems
     ],
     "deployment": {
       "files": [
-        <benchmark-language-wrappers>
+        "benchmark-language-wrappers"
       ],
       "packages": []
     }
@@ -197,7 +232,7 @@ Then, we need to add the new language in [`config/systems.json`](/config/systems
 
 Once done, we can build the image with `tools/build_docker_images.py`.
 
-#### Benchmark Wrappers
+### Benchmark Wrappers
 
 For each language and cloud platform, we need to implement benchmark wrappers.
 The two most common are `handler` which interface cloud-specific function API,
@@ -205,7 +240,7 @@ and `storage` which hides the cloud API of persistent storage.
 
 For example, examine the existing implementations in [`benchmarks/wrappers/`](/benchmarks/wrappers/).
 
-#### Adapt Platform Mode
+### Adapt Platform Mode
 
 The final step is adjusting the SeBS code whenever we make a language-specific decision.
 We need to tell the `package_code` function which files need to be uploaded.
@@ -242,7 +277,7 @@ REST APIs and SDKs of the different platforms behind a common interface.
 The main interface of the serverless platform is provided in the [`sebs.faas.system.System`](/sebs/faas/system.py).
 Each platform implements a class that inherits from it and implements the necessary components.
 
-#### Configuration
+### Configuration
 
 First, add your platform to the configuration in [`systems.json`](/config/systems.json).
 Check other platforms to see how configuration is defined, for example, for AWS:
@@ -287,7 +322,7 @@ and `storage` wrappers of benchmarks.
 
 Now, extend the enum types in [`sebs.types`](/sebs/types.py) to add the new platform.
 
-#### Preparing benchmark upload
+### Preparing benchmark upload
 
 The first step is to tell SeBS how the code package should be built for the new platform. SeBS
 will install dependencies and copy code into a single location, but it needs
@@ -311,7 +346,7 @@ The function should return the path to the final code package and its size.
 Need to build a Docker image? See the [OpenWhisk implementation](/sebs/openwhisk/openwhisk.py) for
 details.
 
-#### Creating and launching function
+### Creating and launching function
 
 SeBS caches cloud functions to avoid recreating functions on each restart.
 Depending on the cache status, SeBS might create a new function; it can retrieve a function from the local cache and use it;
@@ -360,7 +395,7 @@ For example, on AWS and GCP it implements updating the memory configuration of a
         pass
 ```
 
-#### Storage
+### Storage
 
 Most of our benchmarks use cloud object storage to store inputs and output.
 We use the available object storage on cloud systems, such as AWS S3 and Azure Blob Storage.
@@ -375,7 +410,7 @@ Your platform does not come with object storage? No worries, you can then deploy
 SeBS includes automatic deployment of an instance of this storage, and our benchmarks can use it -
 see OpenWhisk documentation, as it uses Minio for storing benchmark inputs and outputs.
 
-#### Other
+### Other
 
 A few additional methods need to be defined:
 

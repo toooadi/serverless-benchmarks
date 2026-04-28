@@ -1,3 +1,4 @@
+// Copyright 2020-2025 ETH Zurich and the SeBS authors. All rights reserved.
 const sharp = require('sharp'),
 			path = require('path'),
       storage = require('./storage');
@@ -24,5 +25,5 @@ exports.handler = async function(event) {
     }
   );
   await promise;
-  return {bucket: output_prefix, key: uploadName}
+  return {result: {bucket: output_prefix, key: uploadName}}
 };

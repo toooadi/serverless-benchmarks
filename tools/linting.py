@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# Copyright 2020-2025 ETH Zurich and the SeBS authors. All rights reserved.
 
 import subprocess
 from sys import argv, exit
@@ -20,4 +21,8 @@ ret = ret | call("flake8", arg, "--config=.flake8.cfg")
 
 print("Check static typing")
 ret = ret | call("mypy", arg, "--config-file=.mypy.ini")
+
+print("Check documentation coverage")
+ret = ret | call("interrogate", arg, "-v --fail-under 100")
+
 exit(ret)

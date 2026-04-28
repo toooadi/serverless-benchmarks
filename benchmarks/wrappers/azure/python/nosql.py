@@ -1,3 +1,4 @@
+# Copyright 2020-2025 ETH Zurich and the SeBS authors. All rights reserved.
 from typing import Dict, List, Optional, Tuple
 
 from azure.cosmos import CosmosClient, ContainerProxy
@@ -40,6 +41,14 @@ class nosql:
             item=secondary_key[1], partition_key=primary_key[1]
         )
         res[secondary_key[0]] = secondary_key[1]
+
+        # remove Azure-specific fields
+        res.pop("id", None)
+        res.pop("_etag", None)
+        res.pop("_rid", None)
+        res.pop("_self", None)
+        res.pop("_ts", None)
+        res.pop("_attachments", None)
 
         return res
 

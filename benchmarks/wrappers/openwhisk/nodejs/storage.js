@@ -1,3 +1,4 @@
+// Copyright 2020-2025 ETH Zurich and the SeBS authors. All rights reserved.
 
 const minio = require('minio'),
   path = require('path'),
@@ -37,6 +38,25 @@ class minio_storage {
 
   download(bucket, file, filepath) {
     return this.client.fGetObject(bucket, file, filepath);
+  };
+
+  async downloadDirectory(bucket, prefix, downloadPath) {
+
+    const stream = this.client.listObjectsV2(bucket, prefix, true);
+
+    const downloadPromises = [];
+    for await (const obj of stream) {
+      try {
+        console.log(obj)
+        const fileName = obj.name;
+      const pathToFile = path.dirname(fileName);
+      fs.mkdirSync(path.join(downloadPath, pathToFile), { recursive: true });
+        downloadPromises.push(this.download(bucket, fileName, path.join(downloadPath, fileName)));
+      } catch (err) {
+        throw new Error(`Error downloading ${obj.name}: ${err}`);
+      }
+    }
+    await Promise.all(downloadPromises);
   };
 
   uploadStream(bucket, file) {

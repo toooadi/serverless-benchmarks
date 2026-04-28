@@ -1,3 +1,4 @@
+# Copyright 2020-2025 ETH Zurich and the SeBS authors. All rights reserved.
 import datetime, io, json, os, uuid, sys
 
 sys.path.append(os.path.join(os.path.dirname(__file__), '.python_packages/lib/site-packages'))
@@ -10,11 +11,9 @@ if 'NOSQL_STORAGE_DATABASE' in os.environ:
         os.environ['NOSQL_STORAGE_DATABASE']
     )
 
-
 def handler(req):
     income_timestamp = datetime.datetime.now().timestamp()
-    req_id = req.headers.get('Function-Execution-Id')
-
+    req_id = req.headers.get('X-Cloud-Trace-Context') or req.headers.get('Function-Execution-Id')
 
     req_json = req.get_json()
     req_json['request-id'] = req_id
@@ -26,11 +25,7 @@ def handler(req):
     end = datetime.datetime.now()
 
 
-    log_data = {
-        'output': ret['result']
-    }
-    if 'measurement' in ret:
-        log_data['measurement'] = ret['measurement']
+    log_data = ret
     if 'logs' in req_json:
         log_data['time'] = (end - begin) / datetime.timedelta(microseconds=1)
         results_begin = datetime.datetime.now()

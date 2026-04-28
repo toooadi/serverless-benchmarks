@@ -1,0 +1,462 @@
+{
+  "general": {
+    "docker_repository": "spcleth/serverless-benchmarks",
+    "SeBS_version": "1.2.1",
+    "previous_major_version": "1.2.0"
+  },
+  "local": {
+    "experiments": {
+      "python": [
+        "papi",
+        "time",
+        "disk-io",
+        "memory"
+      ],
+      "nodejs": [
+        "time"
+      ]
+    },
+    "languages": {
+      "python": {
+        "base_images": {
+          "x64": {
+            "3.7": "python:3.7-slim",
+            "3.8": "python:3.8-slim",
+            "3.9": "python:3.9-slim",
+            "3.10": "python:3.10-slim",
+            "3.11": "python:3.11-slim"
+          }
+        },
+        "images": [
+          "run",
+          "build"
+        ],
+        "username": "docker_user",
+        "deployment": {
+          "files": [
+            "storage.py",
+            "nosql.py"
+          ],
+          "packages": [],
+          "module_packages": {
+            "nosql": [
+              "boto3==1.28.3"
+            ]
+          }
+        }
+      },
+      "nodejs": {
+        "base_images": {
+          "x64": {
+            "14": "ubuntu:22.04",
+            "16": "ubuntu:22.04",
+            "18": "ubuntu:22.04",
+            "20": "ubuntu:22.04"
+          }
+        },
+        "images": [
+          "run",
+          "build"
+        ],
+        "username": "docker_user",
+        "deployment": {
+          "files": [
+            "storage.js",
+            "nosql.js"
+          ],
+          "packages": {
+            "aws-sdk": "2.1692.0",
+            "minio": "7.0.16"
+          }
+        }
+      }
+    },
+    "architecture": [
+      "x64"
+    ],
+    "deployments": [
+      "package"
+    ]
+  },
+  "aws": {
+    "languages": {
+      "python": {
+        "base_images": {
+          "x64": {
+            "3.11": "amazon/aws-lambda-python:3.11.2024.05.23.18",
+            "3.10": "amazon/aws-lambda-python:3.10.2024.06.19.12",
+            "3.9": "amazon/aws-lambda-python:3.9.2024.05.21.00"
+          },
+          "arm64": {
+            "3.11": "amazon/aws-lambda-python:3.11.2024.05.23.17",
+            "3.10": "amazon/aws-lambda-python:3.10.2024.06.19.11",
+            "3.9": "amazon/aws-lambda-python:3.9.2024.05.20.23"
+          }
+        },
+        "images": [
+          "build"
+        ],
+        "deployment": {
+          "files": [
+            "handler.py",
+            "storage.py",
+            "nosql.py",
+            "setup.py"
+          ],
+          "packages": [],
+          "module_packages": {}
+        }
+      },
+      "nodejs": {
+        "base_images": {
+          "x64": {
+            "24": "amazon/aws-lambda-nodejs:24.2026.04.22.11-x86_64",
+            "22": "amazon/aws-lambda-nodejs:22.2026.04.22.11-x86_64",
+            "20": "amazon/aws-lambda-nodejs:20.2026.04.22.11-x86_64"
+          },
+          "arm64": {
+            "24": "amazon/aws-lambda-nodejs:24.2026.04.22.11-arm64",
+            "22": "amazon/aws-lambda-nodejs:22.2026.04.22.11-arm64",
+            "20": "amazon/aws-lambda-nodejs:20.2026.04.22.11-arm64"
+          }
+        },
+        "images": [
+          "build"
+        ],
+        "deployment": {
+          "files": [
+            "handler.js",
+            "storage.js",
+            "nosql.js"
+          ],
+          "packages": {
+            "uuid": "3.4.0"
+          }
+        }
+      },
+      "java": {
+        "base_images": {
+          "x64": {
+            "17": "amazon/aws-lambda-java:17.2026.02.28.00-x86_64",
+            "11": "amazon/aws-lambda-java:11.2026.02.28.00-x86_64"
+          },
+          "arm64": {
+            "17": "amazon/aws-lambda-java:17.2026.02.28.00-arm64",
+            "11": "amazon/aws-lambda-java:11.2026.02.28.00-arm64"
+          }
+        },
+        "images": [
+          "build"
+        ],
+        "deployment": {
+          "files": [
+            "src"
+          ],
+          "packages": {
+            "com.amazonaws:aws-lambda-java-core": "1.2.3",
+            "com.fasterxml.jackson.core:jackson-databind": "2.17.1"
+          },
+          "module_packages": {}
+        }
+      },
+      "cpp": {
+        "base_images": {
+          "x64":{
+            "all": "amazon/aws-lambda-provided:al2023.2026.02.23.16-x86_64"
+          }
+        },
+        "base_images_functions": {
+          "x64": {
+            "all": "spcleth/serverless-benchmarks:build.aws.cpp.all-1.2.0"
+          }
+        },
+        "dependencies": [
+            "runtime", "sdk", "boost", "hiredis", "opencv", "igraph", "torch", "libjpeg-turbo", "rapidjson"
+        ],
+        "versions": ["all"],
+        "images": ["build"],
+        "deployment": {
+          "files": [ "handler.cpp", "key-value.cpp", "key-value.hpp", "storage.cpp", "storage.hpp", "redis.hpp", "redis.cpp", "utils.cpp", "utils.hpp"]
+        }
+      }
+    },
+    "architecture": [
+      "x64",
+      "arm64"
+    ],
+    "deployments": [
+      "package",
+      "container"
+    ]
+  },
+  "azure": {
+    "languages": {
+      "python": {
+        "base_images": {
+          "x64": {
+            "3.9": "mcr.microsoft.com/azure-functions/python:3.0-python3.9",
+            "3.10": "mcr.microsoft.com/azure-functions/python:4-python3.10",
+            "3.11": "mcr.microsoft.com/azure-functions/python:4-python3.11"
+          }
+        },
+        "images": [
+          "build"
+        ],
+        "username": "docker_user",
+        "deployment": {
+          "files": [
+            "handler.py",
+            "storage.py",
+            "nosql.py"
+          ],
+          "packages": [],
+          "module_packages": {
+            "storage": [
+              "azure-storage-blob"
+            ],
+            "nosql": [
+              "azure-cosmos"
+            ]
+          }
+        }
+      },
+      "nodejs": {
+        "base_images": {
+          "x64": {
+            "16": "mcr.microsoft.com/azure-functions/node:4-node16",
+            "18": "mcr.microsoft.com/azure-functions/node:4-node18",
+            "20": "mcr.microsoft.com/azure-functions/node:4-node20"
+          }
+        },
+        "images": [
+          "build"
+        ],
+        "username": "docker_user",
+        "deployment": {
+          "files": [
+            "handler.js",
+            "storage.js",
+            "nosql.js"
+          ],
+          "packages": {
+            "@azure/cosmos": "^4.3.0",
+            "@azure/storage-blob": "^12.0.0",
+            "uuid": "3.4.0"
+          }
+        }
+      },
+      "java": {
+        "base_images": {
+          "x64": {
+            "17": "mcr.microsoft.com/azure-functions/java:4-java17"
+          }
+        },
+        "images": [
+          "build"
+        ],
+        "username": "docker_user",
+        "deployment": {
+          "files": [
+            "src"
+          ],
+          "packages": {
+            "com.microsoft.azure.functions:azure-functions-java-library": "3.0.0",
+            "com.fasterxml.jackson.core:jackson-databind": "2.17.1"
+          },
+          "module_packages": {}
+        }
+      }
+    },
+    "images": {
+      "manage": {
+        "username": "docker_user"
+      }
+    },
+    "architecture": [
+      "x64"
+    ],
+    "deployments": [
+      "package"
+    ]
+  },
+  "gcp": {
+    "languages": {
+      "python": {
+        "base_images": {
+          "x64": {
+            "3.10": "us-central1-docker.pkg.dev/serverless-runtimes/google-22/runtimes/python310@sha256:88ac475abc994f60c6d156e2fcce443396e581fc984e154b5f8608e3298a7d18",
+            "3.11": "us-central1-docker.pkg.dev/serverless-runtimes/google-22/runtimes/python311@sha256:3c346ccf7b0de6c3df6cda05378e96532de1cfb82aaf1e823dc1cc0ca674f61c",
+            "3.12": "us-central1-docker.pkg.dev/serverless-runtimes/google-22/runtimes/python312@sha256:5aa81b77d8361b4b82e3d59f08c834ffb354ccbb7ddf4eff8bb22ce26dee477f"
+          }
+        },
+        "images": [
+          "build"
+        ],
+        "username": "docker_user",
+        "deployment": {
+          "files": [
+            "handler.py",
+            "storage.py",
+            "nosql.py",
+            "setup.py"
+          ],
+          "packages": [],
+          "module_packages": {
+            "storage": [
+              "google-cloud-storage==3.10.1"
+            ],
+            "nosql": [
+              "google-cloud-datastore==2.24.0"
+            ]
+          }
+        }
+      },
+      "nodejs": {
+        "base_images": {
+          "x64": {
+            "20": "us-central1-docker.pkg.dev/serverless-runtimes/google-22/runtimes/nodejs20@sha256:504eb1f482bb62a9c3524bfebada43db93105d7fe6447dc7c96a9f4423e79908",
+            "22": "us-central1-docker.pkg.dev/serverless-runtimes/google-22/runtimes/nodejs22@sha256:56a74d24510c0f4d0da44e13226a150821a84440ddfbf89b52ea620ca729db07",
+            "24": "us-central1-docker.pkg.dev/serverless-runtimes/google-24/runtimes/nodejs24@sha256:8309735602e6228412ba362959f63eebcac9fe5e9a114eb1e63b7febef13030c"
+          }
+        },
+        "images": [
+          "build"
+        ],
+        "username": "docker_user",
+        "deployment": {
+          "files": [
+            "handler.js",
+            "storage.js",
+            "nosql.js"
+          ],
+          "packages": {
+            "@google-cloud/datastore": "9.1.0",
+            "@google-cloud/storage": "4.0.0",
+            "uuid": "3.4.0"
+          }
+        }
+      },
+      "java": {
+        "base_images": {
+          "x64": {
+            "11": "us-central1-docker.pkg.dev/serverless-runtimes/google-18-full/runtimes/java11:deprecated-public-image-java11_20260217_11_0_RC00",
+            "17": "us-central1-docker.pkg.dev/serverless-runtimes/google-22/runtimes/java17:java17_20260405_17_0_RC00"
+          }
+        },
+        "images": [
+          "build"
+        ],
+        "username": "docker_user",
+        "deployment": {
+          "files": [
+            "src"
+          ],
+          "packages": {
+            "com.google.cloud.functions:functions-framework-api": "1.1.0",
+            "com.fasterxml.jackson.core:jackson-databind": "2.17.1"
+          },
+          "module_packages": {}
+        }
+      }
+    },
+    "images": {
+      "manage": {
+        "username": "docker_user"
+      }
+    },
+    "architecture": [
+      "x64",
+      "arm64"
+    ],
+    "deployments": [
+      "package",
+      "container"
+    ]
+  },
+  "openwhisk": {
+    "languages": {
+      "python": {
+        "base_images": {
+          "x64": {
+            "3.7": "openwhisk/action-python-v3.7",
+            "3.9": "openwhisk/action-python-v3.9",
+            "3.10": "openwhisk/action-python-v3.10",
+            "3.11": "openwhisk/action-python-v3.11"
+          }
+        },
+        "images": [
+          "function"
+        ],
+        "username": "docker_user",
+        "deployment": {
+          "files": [
+            "__main__.py",
+            "storage.py",
+            "setup.py",
+            "nosql.py"
+          ],
+          "packages": [],
+          "module_packages": {
+            "storage": {
+              "minio": "^5.0.10"
+            },
+            "nosql": [
+              "boto3==1.28.3"
+            ]
+          }
+        }
+      },
+      "nodejs": {
+        "base_images": {
+          "x64": {
+            "10": "openwhisk/action-nodejs-v10",
+            "12": "openwhisk/action-nodejs-v12",
+            "14": "openwhisk/action-nodejs-v14",
+            "18": "openwhisk/action-nodejs-v18",
+            "20": "openwhisk/action-nodejs-v20"
+          }
+        },
+        "images": [
+          "function"
+        ],
+        "username": "docker_user",
+        "deployment": {
+          "files": [
+            "index.js",
+            "storage.js",
+            "nosql.js"
+          ],
+          "packages": {
+            "aws-sdk": "2.1692.0",
+            "minio": "7.0.16"
+          }
+        }
+      },
+      "java": {
+        "base_images": {
+          "x64": {
+            "8": "openwhisk/java8action:1.20.0"
+          }
+        },
+        "images": [
+          "function"
+        ],
+        "username": "docker_user",
+        "deployment": {
+          "files": [
+            "src"
+          ],
+          "packages": {
+            "com.google.code.gson:gson": "2.8.5"
+          }
+        }
+      }
+    },
+    "architecture": [
+      "x64"
+    ],
+    "deployments": [
+      "container"
+    ]
+  }
+}

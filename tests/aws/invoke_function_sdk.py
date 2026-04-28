@@ -1,3 +1,4 @@
+# Copyright 2020-2025 ETH Zurich and the SeBS authors. All rights reserved.
 import os
 import tempfile
 import unittest
@@ -28,9 +29,6 @@ class AWSInvokeFunctionSDK(unittest.TestCase):
                 "update_code": False,
                 "update_storage": False,
                 "download_results": False,
-                "flags": {
-                    "docker_copy_build_files": True
-                }
             },
         }
         benchmark_name = "110.dynamic-html"
@@ -54,9 +52,6 @@ class AWSInvokeFunctionSDK(unittest.TestCase):
                 "update_code": False,
                 "update_storage": False,
                 "download_results": False,
-                "flags": {
-                    "docker_copy_build_files": True
-                }
             },
         }
         benchmark_name = "110.dynamic-html"

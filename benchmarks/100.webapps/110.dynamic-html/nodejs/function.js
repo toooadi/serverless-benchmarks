@@ -1,3 +1,4 @@
+// Copyright 2020-2025 ETH Zurich and the SeBS authors. All rights reserved.
 const Mustache = require('mustache'),
 			fs = require('fs'),
 			path = require('path');
@@ -22,7 +23,7 @@ exports.handler = async function(event) {
     fs.readFile(file, "utf-8",
       function(err, data) {
         if(err) reject(err);
-        resolve(Mustache.render(data, input));
+        resolve({result: Mustache.render(data, input)});
       }
     );
   });

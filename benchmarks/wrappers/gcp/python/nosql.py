@@ -1,3 +1,4 @@
+# Copyright 2020-2025 ETH Zurich and the SeBS authors. All rights reserved.
 from typing import List, Optional, Tuple
 
 from google.cloud import datastore
@@ -89,6 +90,8 @@ class nosql:
 
         # Emulate the kind key
         res[secondary_key[0]] = secondary_key[1]
+        # on GCP, we also need to emulate the main key
+        res[primary_key[0]] = primary_key[1]
 
         return res
 

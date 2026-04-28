@@ -10,12 +10,16 @@ types-pycurl
 types-requests
 types-PyYAML
 types-urllib3
+types-docker
 #
 pandas>=1.1.3
 numpy
 scipy
 #
+Pillow
 pycurl>=7.43
 click>=7.1.2
 rich
+patch-ng
 
+interrogate==1.7.0

@@ -1,3 +1,4 @@
+# Copyright 2020-2025 ETH Zurich and the SeBS authors. All rights reserved.
 from . import nosql
 
 nosql_client = nosql.nosql.get_instance()
@@ -33,7 +34,7 @@ def query_products(cart_id: str):
     for product in res:
 
         products.append(product["name"])
-        price_sum += product["price"]
+        price_sum += product["price"] * product["quantity"]
         quantity_sum += product["quantity"]
 
     avg_price = price_sum / quantity_sum if quantity_sum > 0 else 0.0
